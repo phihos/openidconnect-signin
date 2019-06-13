@@ -1,8 +1,8 @@
 /**
-@license
-Copyright (c) 2018 Advanced Community Information Systems (ACIS) Group, Chair of Computer Science 5 (Databases &
-Information Systems), RWTH Aachen University, Germany. All rights reserved.
-*/
+ @license
+ Copyright (c) 2018 Advanced Community Information Systems (ACIS) Group, Chair of Computer Science 5 (Databases &
+ Information Systems), RWTH Aachen University, Germany. All rights reserved.
+ */
 
 import {LitElement, html} from 'lit-element';
 
@@ -44,6 +44,9 @@ class OpenIDConnectSignin extends LitElement {
       silentRedirectUri: {
         type: String
       },
+      useRedirect: {
+        type: Boolean
+      },
       _signedIn: {
         type: Boolean
       },
@@ -56,6 +59,7 @@ class OpenIDConnectSignin extends LitElement {
   constructor() {
     super();
     this._signedIn = false;
+    this.useRedirect = false;
   }
 
   render() {
@@ -137,8 +141,8 @@ class OpenIDConnectSignin extends LitElement {
     const settings = {
       authority: this.authority,
       client_id: this.clientId,
-      //redirect_uri: 'http://localhost:5000/identityserver-sample.html',
-      //post_logout_redirect_uri: 'http://localhost:5000/identityserver-sample.html',
+      redirect_uri: this._pathToUri(this.popupRedirectUri),
+      post_logout_redirect_uri: this._pathToUri(this.popupPostLogoutRedirectUri),
       response_type: 'id_token token',
       scope: this.scope,
 
@@ -168,7 +172,7 @@ class OpenIDConnectSignin extends LitElement {
       console.error('error while renewing the access token', error);
     });
 
-    if(!this._signedIn){
+    if (!this._signedIn) {
       // try silent login
       this._manager.signinSilent().catch(err => {
       });
@@ -185,16 +189,16 @@ class OpenIDConnectSignin extends LitElement {
    * @param path A path like "/my/path" or "my/path".
    * @private
    */
-  _pathToUri(path){
+  _pathToUri(path) {
     path = path.trim();
-    if(path.startsWith('http')){
+    if (path.startsWith('http')) {
       return path;
     }
 
-    if(path.startsWith('/')){
+    if (path.startsWith('/')) {
       // the path is absolute and we need to append it after the origin part of the current location
       return window.location.origin + path;
-    }else{
+    } else {
       // the path is relative and we need to append it to the current path without the part after the last slash
       return window.location.href.substr(0, window.location.href.lastIndexOf('/') + 1) + path;
     }
@@ -202,13 +206,22 @@ class OpenIDConnectSignin extends LitElement {
 
   _handleClick(e) {
     if (this._signedIn) {
-      this._manager.signoutPopup().catch(error => {
+      const errorHandler = () => {
         // could not log out, at least clear state
         this._manager.clearStaleState();
         this._manager.removeUser();
-      });
+      };
+      if (this.useRedirect) {
+        this._manager.signoutRedirect().catch(errorHandler);
+      } else {
+        this._manager.signoutPopup().catch(errorHandler);
+      }
     } else {
-      this._manager.signinPopup();
+      if (this.useRedirect) {
+        this._manager.signinRedirect();
+      } else {
+        this._manager.signinPopup();
+      }
     }
   }
 
